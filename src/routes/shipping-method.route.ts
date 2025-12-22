@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from 'express';
-import { prisma } from '@innovabound-ecomm-platform/fulfillment-db';
+import { getFulfillmentPrisma } from '../lib/db';
 import { requireAuth, requirePermission, optionalAuth, type AuthenticatedRequest } from '../middleware/auth';
+
+const prisma = getFulfillmentPrisma();
 import {
   CreateShippingMethodSchema,
   UpdateShippingMethodSchema,
@@ -51,7 +53,7 @@ router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
     const method = await prisma.shippingMethod.findFirst({
       where: {
         OR: [
-          { id: parseInt(id) || 0 },
+          { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
@@ -151,7 +153,7 @@ router.put(
       const existingMethod = await prisma.shippingMethod.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { code: id },
           ],
@@ -194,7 +196,7 @@ router.delete(
       const method = await prisma.shippingMethod.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { code: id },
           ],

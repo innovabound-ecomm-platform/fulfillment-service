@@ -1,6 +1,8 @@
 import { Router, type Response } from 'express';
-import { prisma } from '@innovabound-ecomm-platform/fulfillment-db';
+import { getFulfillmentPrisma } from '../lib/db';
 import { requireAuth, requirePermission, type AuthenticatedRequest } from '../middleware/auth';
+
+const prisma = getFulfillmentPrisma();
 import {
   CreateFulfillmentOrderSchema,
   AssignFulfillmentOrderSchema,
@@ -83,7 +85,7 @@ router.get(
       const order = await prisma.fulfillmentOrder.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
           ],
         },
@@ -189,7 +191,7 @@ router.post(
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
           ],
         },
@@ -240,7 +242,7 @@ router.post(
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
           ],
         },
@@ -301,7 +303,7 @@ router.post(
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
           ],
         },
@@ -319,7 +321,7 @@ router.post(
 
       const existingItem = await prisma.fulfillmentOrderItem.findFirst({
         where: {
-          id: parseInt(itemId),
+          id: parseInt(itemId as string),
           fulfillmentOrderId: existingOrder.id,
         },
       });
@@ -368,7 +370,7 @@ router.post(
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
           ],
         },
@@ -388,11 +390,11 @@ router.post(
       }
 
       // Check if all items are picked
-      const unPickedItems = existingOrder.items.filter((item) => !item.isPicked);
+      const unPickedItems = existingOrder.items.filter((item: { isPicked: boolean }) => !item.isPicked);
       if (unPickedItems.length > 0) {
         res.status(400).json({
           error: 'All items must be picked before completing',
-          unPickedItems: unPickedItems.map((i) => i.id),
+          unPickedItems: unPickedItems.map((i: { id: number }) => i.id),
         });
         return;
       }
@@ -433,7 +435,7 @@ router.post(
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
           ],
         },
@@ -502,8 +504,8 @@ router.get(
         data: orders,
         total: orders.length,
         summary: {
-          pending: orders.filter((o) => o.status === 'pending').length,
-          inProgress: orders.filter((o) => o.status === 'in_progress').length,
+          pending: orders.filter((o: { status: string }) => o.status === 'pending').length,
+          inProgress: orders.filter((o: { status: string }) => o.status === 'in_progress').length,
         },
       });
     } catch (error) {

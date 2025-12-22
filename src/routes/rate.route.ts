@@ -1,6 +1,8 @@
 import { Router, type Request, type Response } from 'express';
-import { prisma } from '@innovabound-ecomm-platform/fulfillment-db';
+import { getFulfillmentPrisma } from '../lib/db';
 import { requireAuth, requirePermission, optionalAuth, type AuthenticatedRequest } from '../middleware/auth';
+
+const prisma = getFulfillmentPrisma();
 import {
   CreateShippingRateSchema,
   UpdateShippingRateSchema,
@@ -230,7 +232,7 @@ router.put(
       const data = validation.data;
 
       const existingRate = await prisma.shippingRate.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: parseInt(id as string) },
       });
 
       if (!existingRate) {
@@ -267,7 +269,7 @@ router.delete(
       const { id } = req.params;
 
       const rate = await prisma.shippingRate.findUnique({
-        where: { id: parseInt(id) },
+        where: { id: parseInt(id as string) },
       });
 
       if (!rate) {

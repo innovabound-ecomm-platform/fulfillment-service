@@ -1,6 +1,8 @@
 import { Router, type Response } from 'express';
-import { prisma } from '@innovabound-ecomm-platform/fulfillment-db';
+import { getFulfillmentPrisma } from '../lib/db';
 import { requireAuth, requirePermission, type AuthenticatedRequest } from '../middleware/auth';
+
+const prisma = getFulfillmentPrisma();
 import {
   CreateShipmentSchema,
   UpdateShipmentSchema,
@@ -96,7 +98,7 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
     const shipment = await prisma.shipment.findFirst({
       where: {
         OR: [
-          { id: parseInt(id) || 0 },
+          { id: parseInt(id as string) || 0 },
           { uuid: id },
           { shipmentNumber: id },
           { trackingNumber: id },
@@ -223,7 +225,7 @@ router.put(
       const existingShipment = await prisma.shipment.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
@@ -283,7 +285,7 @@ router.post(
       const existingShipment = await prisma.shipment.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
@@ -365,7 +367,7 @@ router.post(
       const existingShipment = await prisma.shipment.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
@@ -434,7 +436,7 @@ router.post(
       const existingShipment = await prisma.shipment.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
@@ -491,7 +493,7 @@ router.get('/:id/tracking', requireAuth, async (req: AuthenticatedRequest, res: 
     const shipment = await prisma.shipment.findFirst({
       where: {
         OR: [
-          { id: parseInt(id) || 0 },
+          { id: parseInt(id as string) || 0 },
           { uuid: id },
           { shipmentNumber: id },
           { trackingNumber: id },
@@ -549,7 +551,7 @@ router.post(
       const shipment = await prisma.shipment.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
             { trackingNumber: id },
@@ -625,7 +627,7 @@ router.get('/:id/items', requireAuth, async (req: AuthenticatedRequest, res: Res
     const shipment = await prisma.shipment.findFirst({
       where: {
         OR: [
-          { id: parseInt(id) || 0 },
+          { id: parseInt(id as string) || 0 },
           { uuid: id },
           { shipmentNumber: id },
         ],
@@ -670,7 +672,7 @@ router.post(
       const shipment = await prisma.shipment.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
@@ -723,7 +725,7 @@ router.delete(
       const shipment = await prisma.shipment.findFirst({
         where: {
           OR: [
-            { id: parseInt(shipmentId) || 0 },
+            { id: parseInt(shipmentId as string) || 0 },
             { uuid: shipmentId },
             { shipmentNumber: shipmentId },
           ],
@@ -742,7 +744,7 @@ router.delete(
 
       const item = await prisma.shipmentItem.findFirst({
         where: {
-          id: parseInt(itemId),
+          id: parseInt(itemId as string),
           shipmentId: shipment.id,
         },
       });

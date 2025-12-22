@@ -1,6 +1,8 @@
 import { Router, type Response } from 'express';
-import { prisma } from '@innovabound-ecomm-platform/fulfillment-db';
+import { getFulfillmentPrisma } from '../lib/db';
 import { requireAuth, requirePermission, type AuthenticatedRequest } from '../middleware/auth';
+
+const prisma = getFulfillmentPrisma();
 import {
   CreateWarehouseSchema,
   UpdateWarehouseSchema,
@@ -76,7 +78,7 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
     const warehouse = await prisma.warehouse.findFirst({
       where: {
         OR: [
-          { id: parseInt(id) || 0 },
+          { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
@@ -180,7 +182,7 @@ router.put(
       const existingWarehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { code: id },
           ],
@@ -226,7 +228,7 @@ router.delete(
       const warehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { code: id },
           ],
@@ -274,7 +276,7 @@ router.get('/:id/addresses', requireAuth, async (req: AuthenticatedRequest, res:
     const warehouse = await prisma.warehouse.findFirst({
       where: {
         OR: [
-          { id: parseInt(id) || 0 },
+          { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
@@ -319,7 +321,7 @@ router.post(
       const warehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { code: id },
           ],
@@ -387,7 +389,7 @@ router.put(
       const warehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(warehouseId) || 0 },
+            { id: parseInt(warehouseId as string) || 0 },
             { uuid: warehouseId },
             { code: warehouseId },
           ],
@@ -401,7 +403,7 @@ router.put(
 
       const existingAddress = await prisma.warehouseAddress.findFirst({
         where: {
-          id: parseInt(addressId),
+          id: parseInt(addressId as string),
           warehouseId: warehouse.id,
         },
       });
@@ -452,7 +454,7 @@ router.delete(
       const warehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(warehouseId) || 0 },
+            { id: parseInt(warehouseId as string) || 0 },
             { uuid: warehouseId },
             { code: warehouseId },
           ],
@@ -466,7 +468,7 @@ router.delete(
 
       const address = await prisma.warehouseAddress.findFirst({
         where: {
-          id: parseInt(addressId),
+          id: parseInt(addressId as string),
           warehouseId: warehouse.id,
         },
       });
@@ -500,7 +502,7 @@ router.get('/:id/locations', requireAuth, async (req: AuthenticatedRequest, res:
     const warehouse = await prisma.warehouse.findFirst({
       where: {
         OR: [
-          { id: parseInt(id) || 0 },
+          { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
@@ -541,7 +543,7 @@ router.get('/:warehouseId/locations/:locationId', requireAuth, async (req: Authe
     const warehouse = await prisma.warehouse.findFirst({
       where: {
         OR: [
-          { id: parseInt(warehouseId) || 0 },
+          { id: parseInt(warehouseId as string) || 0 },
           { uuid: warehouseId },
           { code: warehouseId },
         ],
@@ -555,7 +557,7 @@ router.get('/:warehouseId/locations/:locationId', requireAuth, async (req: Authe
 
     const location = await prisma.inventoryLocation.findFirst({
       where: {
-        id: parseInt(locationId),
+        id: parseInt(locationId as string),
         warehouseId: warehouse.id,
       },
     });
@@ -591,7 +593,7 @@ router.post(
       const warehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(id) || 0 },
+            { id: parseInt(id as string) || 0 },
             { uuid: id },
             { code: id },
           ],
@@ -658,7 +660,7 @@ router.put(
       const warehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(warehouseId) || 0 },
+            { id: parseInt(warehouseId as string) || 0 },
             { uuid: warehouseId },
             { code: warehouseId },
           ],
@@ -672,7 +674,7 @@ router.put(
 
       const existingLocation = await prisma.inventoryLocation.findFirst({
         where: {
-          id: parseInt(locationId),
+          id: parseInt(locationId as string),
           warehouseId: warehouse.id,
         },
       });
@@ -717,7 +719,7 @@ router.post(
       const warehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(warehouseId) || 0 },
+            { id: parseInt(warehouseId as string) || 0 },
             { uuid: warehouseId },
             { code: warehouseId },
           ],
@@ -731,7 +733,7 @@ router.post(
 
       const existingLocation = await prisma.inventoryLocation.findFirst({
         where: {
-          id: parseInt(locationId),
+          id: parseInt(locationId as string),
           warehouseId: warehouse.id,
         },
       });
@@ -784,7 +786,7 @@ router.delete(
       const warehouse = await prisma.warehouse.findFirst({
         where: {
           OR: [
-            { id: parseInt(warehouseId) || 0 },
+            { id: parseInt(warehouseId as string) || 0 },
             { uuid: warehouseId },
             { code: warehouseId },
           ],
@@ -798,7 +800,7 @@ router.delete(
 
       const location = await prisma.inventoryLocation.findFirst({
         where: {
-          id: parseInt(locationId),
+          id: parseInt(locationId as string),
           warehouseId: warehouse.id,
         },
       });
