@@ -93,7 +93,7 @@ PENDING → PROCESSING → READY_TO_SHIP → SHIPPED → IN_TRANSIT → OUT_FOR_
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `PORT` | Service port | `3011` |
+| `PORT` | Service port | `3007` |
 | `DATABASE_URL` | PostgreSQL connection string | - |
 | `KAFKA_BROKERS` | Kafka broker addresses | - |
 | `SHIPPO_API_KEY` | Shippo API key (optional) | - |
