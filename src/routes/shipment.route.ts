@@ -13,7 +13,7 @@ import {
   ShipmentListQuerySchema,
 } from '../schemas/fulfillment.schema';
 
-const router = Router();
+const router: Router = Router();
 
 // ===========================================
 // HELPER FUNCTIONS

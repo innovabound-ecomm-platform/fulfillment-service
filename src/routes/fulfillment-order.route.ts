@@ -10,7 +10,7 @@ import {
   FulfillmentOrderListQuerySchema,
 } from '../schemas/fulfillment.schema';
 
-const router = Router();
+const router: Router = Router();
 
 // ===========================================
 // LIST FULFILLMENT ORDERS

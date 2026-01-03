@@ -9,7 +9,7 @@ import {
   CalculateRatesSchema,
 } from '../schemas/fulfillment.schema';
 
-const router = Router();
+const router: Router = Router();
 
 // ===========================================
 // CALCULATE SHIPPING RATES
