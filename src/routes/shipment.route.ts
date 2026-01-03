@@ -1,15 +1,12 @@
 import { Router, type Response } from 'express';
-import { getFulfillmentPrisma } from '../lib/db';
-import { requireAuth, requirePermission, type AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../common/utils/db';
+import { requireAuth, requirePermission, type AuthenticatedRequest } from '../common/http/auth.middleware';
 
-const prisma = getFulfillmentPrisma();
 import {
   CreateShipmentSchema,
   UpdateShipmentSchema,
-  AddShipmentItemSchema,
   GenerateLabelSchema,
   MarkShippedSchema,
-  AddTrackingEventSchema,
   ShipmentListQuerySchema,
 } from '../schemas/fulfillment.schema';
 
@@ -30,6 +27,57 @@ function generateShipmentNumber(): string {
 // LIST SHIPMENTS
 // ===========================================
 
+/**
+ * @openapi
+ * /shipments:
+ *   get:
+ *     summary: List shipments
+ *     description: Retrieve a paginated list of shipments with optional filtering
+ *     tags:
+ *       - Shipments
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, PROCESSING, READY_TO_SHIP, SHIPPED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, FAILED_ATTEMPT, EXCEPTION, RETURNED_TO_SENDER, CANCELLED]
+ *         description: Filter by shipment status
+ *       - in: query
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *         description: Filter by order ID
+ *       - in: query
+ *         name: warehouseId
+ *         schema:
+ *           type: string
+ *         description: Filter by warehouse ID
+ *       - in: query
+ *         name: carrier
+ *         schema:
+ *           type: string
+ *         description: Filter by carrier (USPS, UPS, FEDEX, DHL)
+ *     responses:
+ *       200:
+ *         description: List of shipments
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const validation = ShipmentListQuerySchema.safeParse(req.query);
@@ -91,6 +139,32 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
 // GET SHIPMENT BY ID
 // ===========================================
 
+/**
+ * @openapi
+ * /shipments/{id}:
+ *   get:
+ *     summary: Get shipment by ID
+ *     description: Returns shipment details by ID, UUID, shipment number, or tracking number
+ *     tags:
+ *       - Shipments
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Shipment ID, UUID, shipment number, or tracking number
+ *     responses:
+ *       200:
+ *         description: Shipment details
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Shipment not found
+ */
 router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -130,6 +204,43 @@ router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response)
 // CREATE SHIPMENT
 // ===========================================
 
+/**
+ * @openapi
+ * /shipments:
+ *   post:
+ *     summary: Create a shipment
+ *     description: Create a new shipment with items (admin/fulfillment only)
+ *     tags:
+ *       - Shipments
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - orderId
+ *               - carrier
+ *               - warehouseId
+ *               - shipToName
+ *               - shipToAddressLine1
+ *               - shipToCity
+ *               - shipToState
+ *               - shipToPostalCode
+ *               - shipToCountry
+ *     responses:
+ *       201:
+ *         description: Shipment created successfully
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - insufficient permissions
+ */
 router.post(
   '/',
   requireAuth,
@@ -206,6 +317,36 @@ router.post(
 // UPDATE SHIPMENT
 // ===========================================
 
+/**
+ * @openapi
+ * /shipments/{id}:
+ *   put:
+ *     summary: Update a shipment
+ *     description: Update shipment details (admin/fulfillment only, only before shipping)
+ *     tags:
+ *       - Shipments
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Shipment ID, UUID, or shipment number
+ *     responses:
+ *       200:
+ *         description: Shipment updated successfully
+ *       400:
+ *         description: Validation error or cannot update in current status
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Shipment not found
+ */
 router.put(
   '/:id',
   requireAuth,
@@ -266,6 +407,31 @@ router.put(
 // GENERATE SHIPPING LABEL
 // ===========================================
 
+/**
+ * @openapi
+ * /shipments/{id}/label:
+ *   post:
+ *     summary: Generate shipping label
+ *     description: Generate a shipping label for the shipment (admin/fulfillment only)
+ *     tags:
+ *       - Shipments
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Label generated successfully
+ *       400:
+ *         description: Validation error or label already exists
+ *       404:
+ *         description: Shipment not found
+ */
 router.post(
   '/:id/label',
   requireAuth,
@@ -303,7 +469,6 @@ router.post(
       }
 
       // In production, integrate with carrier API (Shippo, EasyPost, etc.)
-      // For now, simulate label generation
       const mockTrackingNumber = `${data.carrier}${Date.now()}`;
       const mockLabelUrl = `https://labels.example.com/${mockTrackingNumber}.${data.labelFormat.toLowerCase()}`;
 
@@ -348,6 +513,31 @@ router.post(
 // MARK AS SHIPPED
 // ===========================================
 
+/**
+ * @openapi
+ * /shipments/{id}/ship:
+ *   post:
+ *     summary: Mark shipment as shipped
+ *     description: Record that the shipment has been handed to the carrier
+ *     tags:
+ *       - Shipments
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Shipment marked as shipped
+ *       400:
+ *         description: Validation error or shipment not ready
+ *       404:
+ *         description: Shipment not found
+ */
 router.post(
   '/:id/ship',
   requireAuth,
@@ -424,6 +614,31 @@ router.post(
 // CANCEL SHIPMENT
 // ===========================================
 
+/**
+ * @openapi
+ * /shipments/{id}/cancel:
+ *   post:
+ *     summary: Cancel a shipment
+ *     description: Cancel a shipment before it has shipped
+ *     tags:
+ *       - Shipments
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Shipment cancelled
+ *       400:
+ *         description: Cannot cancel after shipping
+ *       404:
+ *         description: Shipment not found
+ */
 router.post(
   '/:id/cancel',
   requireAuth,
@@ -478,290 +693,6 @@ router.post(
     } catch (error) {
       console.error('Error cancelling shipment:', error);
       res.status(500).json({ error: 'Failed to cancel shipment' });
-    }
-  }
-);
-
-// ===========================================
-// GET TRACKING EVENTS
-// ===========================================
-
-router.get('/:id/tracking', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const shipment = await prisma.shipment.findFirst({
-      where: {
-        OR: [
-          { id: parseInt(id as string) || 0 },
-          { uuid: id },
-          { shipmentNumber: id },
-          { trackingNumber: id },
-        ],
-      },
-    });
-
-    if (!shipment) {
-      res.status(404).json({ error: 'Shipment not found' });
-      return;
-    }
-
-    const events = await prisma.trackingEvent.findMany({
-      where: { shipmentId: shipment.id },
-      orderBy: { occurredAt: 'desc' },
-    });
-
-    res.json({
-      data: events,
-      total: events.length,
-      shipment: {
-        id: shipment.uuid,
-        shipmentNumber: shipment.shipmentNumber,
-        trackingNumber: shipment.trackingNumber,
-        status: shipment.status,
-        carrier: shipment.carrier,
-      },
-    });
-  } catch (error) {
-    console.error('Error getting tracking events:', error);
-    res.status(500).json({ error: 'Failed to get tracking events' });
-  }
-});
-
-// ===========================================
-// ADD TRACKING EVENT
-// ===========================================
-
-router.post(
-  '/:id/tracking',
-  requireAuth,
-  requirePermission('admin', 'fulfillment:manage', 'service'),
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-
-      const validation = AddTrackingEventSchema.safeParse(req.body);
-      if (!validation.success) {
-        res.status(400).json({ error: 'Validation failed', details: validation.error.errors });
-        return;
-      }
-
-      const data = validation.data;
-
-      const shipment = await prisma.shipment.findFirst({
-        where: {
-          OR: [
-            { id: parseInt(id as string) || 0 },
-            { uuid: id },
-            { shipmentNumber: id },
-            { trackingNumber: id },
-          ],
-        },
-      });
-
-      if (!shipment) {
-        res.status(404).json({ error: 'Shipment not found' });
-        return;
-      }
-
-      const event = await prisma.trackingEvent.create({
-        data: {
-          shipmentId: shipment.id,
-          eventType: data.eventType,
-          eventCode: data.eventCode,
-          eventDescription: data.eventDescription,
-          city: data.city,
-          state: data.state,
-          postalCode: data.postalCode,
-          country: data.country,
-          occurredAt: data.occurredAt || new Date(),
-          actorUserId: req.user!.id,
-          actorType: req.user!.roles.includes('service') ? 'SERVICE' : 'ADMIN',
-          createdBy: req.user!.id,
-        },
-      });
-
-      // Update shipment status based on event type
-      const statusMap: Record<string, string> = {
-        IN_TRANSIT: 'IN_TRANSIT',
-        OUT_FOR_DELIVERY: 'OUT_FOR_DELIVERY',
-        DELIVERED: 'DELIVERED',
-        DELIVERY_ATTEMPTED: 'FAILED_ATTEMPT',
-        EXCEPTION: 'EXCEPTION',
-        RETURNED: 'RETURNED_TO_SENDER',
-      };
-
-      const newStatus = statusMap[data.eventType];
-      if (newStatus) {
-        const updateData: Record<string, unknown> = {
-          status: newStatus,
-          updatedBy: req.user!.id,
-        };
-
-        if (newStatus === 'DELIVERED') {
-          updateData.actualDeliveryDate = data.occurredAt || new Date();
-        }
-
-        await prisma.shipment.update({
-          where: { id: shipment.id },
-          data: updateData,
-        });
-      }
-
-      res.status(201).json(event);
-    } catch (error) {
-      console.error('Error adding tracking event:', error);
-      res.status(500).json({ error: 'Failed to add tracking event' });
-    }
-  }
-);
-
-// ===========================================
-// SHIPMENT ITEMS
-// ===========================================
-
-router.get('/:id/items', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const { id } = req.params;
-
-    const shipment = await prisma.shipment.findFirst({
-      where: {
-        OR: [
-          { id: parseInt(id as string) || 0 },
-          { uuid: id },
-          { shipmentNumber: id },
-        ],
-      },
-    });
-
-    if (!shipment) {
-      res.status(404).json({ error: 'Shipment not found' });
-      return;
-    }
-
-    const items = await prisma.shipmentItem.findMany({
-      where: { shipmentId: shipment.id },
-    });
-
-    res.json({
-      data: items,
-      total: items.length,
-    });
-  } catch (error) {
-    console.error('Error listing shipment items:', error);
-    res.status(500).json({ error: 'Failed to list shipment items' });
-  }
-});
-
-router.post(
-  '/:id/items',
-  requireAuth,
-  requirePermission('admin', 'fulfillment:manage'),
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const { id } = req.params;
-
-      const validation = AddShipmentItemSchema.safeParse(req.body);
-      if (!validation.success) {
-        res.status(400).json({ error: 'Validation failed', details: validation.error.errors });
-        return;
-      }
-
-      const data = validation.data;
-
-      const shipment = await prisma.shipment.findFirst({
-        where: {
-          OR: [
-            { id: parseInt(id as string) || 0 },
-            { uuid: id },
-            { shipmentNumber: id },
-          ],
-        },
-      });
-
-      if (!shipment) {
-        res.status(404).json({ error: 'Shipment not found' });
-        return;
-      }
-
-      if (!['PENDING', 'PROCESSING'].includes(shipment.status)) {
-        res.status(400).json({ error: 'Cannot add items in current status' });
-        return;
-      }
-
-      const item = await prisma.shipmentItem.create({
-        data: {
-          shipmentId: shipment.id,
-          orderItemId: data.orderItemId,
-          productId: data.productId,
-          variantId: data.variantId,
-          sku: data.sku,
-          name: data.name,
-          quantity: data.quantity,
-          weightOz: data.weightOz,
-          serialNumbers: data.serialNumbers || [],
-          lotNumber: data.lotNumber,
-          createdBy: req.user!.id,
-          updatedBy: req.user!.id,
-        },
-      });
-
-      res.status(201).json(item);
-    } catch (error) {
-      console.error('Error adding shipment item:', error);
-      res.status(500).json({ error: 'Failed to add shipment item' });
-    }
-  }
-);
-
-router.delete(
-  '/:shipmentId/items/:itemId',
-  requireAuth,
-  requirePermission('admin', 'fulfillment:manage'),
-  async (req: AuthenticatedRequest, res: Response) => {
-    try {
-      const { shipmentId, itemId } = req.params;
-
-      const shipment = await prisma.shipment.findFirst({
-        where: {
-          OR: [
-            { id: parseInt(shipmentId as string) || 0 },
-            { uuid: shipmentId },
-            { shipmentNumber: shipmentId },
-          ],
-        },
-      });
-
-      if (!shipment) {
-        res.status(404).json({ error: 'Shipment not found' });
-        return;
-      }
-
-      if (!['PENDING', 'PROCESSING'].includes(shipment.status)) {
-        res.status(400).json({ error: 'Cannot remove items in current status' });
-        return;
-      }
-
-      const item = await prisma.shipmentItem.findFirst({
-        where: {
-          id: parseInt(itemId as string),
-          shipmentId: shipment.id,
-        },
-      });
-
-      if (!item) {
-        res.status(404).json({ error: 'Shipment item not found' });
-        return;
-      }
-
-      await prisma.shipmentItem.delete({
-        where: { id: item.id },
-      });
-
-      res.json({ message: 'Shipment item deleted' });
-    } catch (error) {
-      console.error('Error deleting shipment item:', error);
-      res.status(500).json({ error: 'Failed to delete shipment item' });
     }
   }
 );

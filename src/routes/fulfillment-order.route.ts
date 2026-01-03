@@ -1,8 +1,7 @@
 import { Router, type Response } from 'express';
-import { getFulfillmentPrisma } from '../lib/db';
-import { requireAuth, requirePermission, type AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../common/utils/db';
+import { requireAuth, requirePermission, type AuthenticatedRequest } from '../common/http/auth.middleware';
 
-const prisma = getFulfillmentPrisma();
 import {
   CreateFulfillmentOrderSchema,
   AssignFulfillmentOrderSchema,
@@ -16,6 +15,60 @@ const router: Router = Router();
 // LIST FULFILLMENT ORDERS
 // ===========================================
 
+/**
+ * @openapi
+ * /fulfillment-orders:
+ *   get:
+ *     summary: List fulfillment orders
+ *     description: Retrieve fulfillment orders for warehouse processing (admin/fulfillment/warehouse only)
+ *     tags:
+ *       - Fulfillment Orders
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [PENDING, ASSIGNED, PICKING, PICKED, PACKING, PACKED, READY_TO_SHIP, SHIPPED, CANCELLED]
+ *       - in: query
+ *         name: warehouseId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: orderId
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: assignedTo
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: priority
+ *         schema:
+ *           type: string
+ *           enum: [LOW, NORMAL, HIGH, URGENT]
+ *     responses:
+ *       200:
+ *         description: List of fulfillment orders
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   '/',
   requireAuth,

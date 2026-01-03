@@ -1,8 +1,7 @@
 import { Router, type Request, type Response } from 'express';
-import { getFulfillmentPrisma } from '../lib/db';
-import { requireAuth, requirePermission, optionalAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../common/utils/db';
+import { requireAuth, requirePermission, optionalAuth, type AuthenticatedRequest } from '../common/http/auth.middleware';
 
-const prisma = getFulfillmentPrisma();
 import {
   CreateShippingMethodSchema,
   UpdateShippingMethodSchema,
@@ -17,6 +16,25 @@ const router: Router = Router();
 // LIST SHIPPING METHODS
 // ===========================================
 
+/**
+ * @openapi
+ * /shipping-methods:
+ *   get:
+ *     summary: List shipping methods
+ *     description: Get all available shipping methods (public endpoint)
+ *     tags:
+ *       - Shipping Methods
+ *     parameters:
+ *       - in: query
+ *         name: active
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *         description: Filter by active status
+ *     responses:
+ *       200:
+ *         description: List of shipping methods
+ */
 router.get('/', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { active } = req.query;
@@ -46,6 +64,27 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
 // GET SHIPPING METHOD BY ID
 // ===========================================
 
+/**
+ * @openapi
+ * /shipping-methods/{id}:
+ *   get:
+ *     summary: Get shipping method by ID
+ *     description: Returns shipping method details by ID, UUID, or code (public endpoint)
+ *     tags:
+ *       - Shipping Methods
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Shipping method ID, UUID, or code
+ *     responses:
+ *       200:
+ *         description: Shipping method details
+ *       404:
+ *         description: Shipping method not found
+ */
 router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -76,6 +115,72 @@ router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
 // CREATE SHIPPING METHOD (Admin only)
 // ===========================================
 
+/**
+ * @openapi
+ * /shipping-methods:
+ *   post:
+ *     summary: Create shipping method
+ *     description: Create a new shipping method (admin/fulfillment only)
+ *     tags:
+ *       - Shipping Methods
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - code
+ *               - carrier
+ *               - baseCost
+ *             properties:
+ *               name:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               carrier:
+ *                 type: string
+ *                 enum: [USPS, UPS, FEDEX, DHL, OTHER]
+ *               baseCost:
+ *                 type: number
+ *               costPerOz:
+ *                 type: number
+ *               freeShippingMin:
+ *                 type: number
+ *               minDays:
+ *                 type: integer
+ *               maxDays:
+ *                 type: integer
+ *               isActive:
+ *                 type: boolean
+ *               maxWeight:
+ *                 type: number
+ *               countriesAllowed:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               countriesBlocked:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *               sortOrder:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Shipping method created
+ *       400:
+ *         description: Validation error or duplicate code
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.post(
   '/',
   requireAuth,
@@ -134,6 +239,51 @@ router.post(
 // UPDATE SHIPPING METHOD (Admin only)
 // ===========================================
 
+/**
+ * @openapi
+ * /shipping-methods/{id}:
+ *   put:
+ *     summary: Update shipping method
+ *     description: Update shipping method details (admin/fulfillment only)
+ *     tags:
+ *       - Shipping Methods
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Shipping method ID, UUID, or code
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               baseCost:
+ *                 type: number
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Shipping method updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Shipping method not found
+ */
 router.put(
   '/:id',
   requireAuth,

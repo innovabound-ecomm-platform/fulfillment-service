@@ -1,8 +1,7 @@
 import { Router, type Request, type Response } from 'express';
-import { getFulfillmentPrisma } from '../lib/db';
-import { requireAuth, requirePermission, optionalAuth, type AuthenticatedRequest } from '../middleware/auth';
+import { prisma } from '../common/utils/db';
+import { requireAuth, requirePermission, optionalAuth, type AuthenticatedRequest } from '../common/http/auth.middleware';
 
-const prisma = getFulfillmentPrisma();
 import {
   CreateShippingRateSchema,
   UpdateShippingRateSchema,
@@ -15,6 +14,41 @@ const router: Router = Router();
 // CALCULATE SHIPPING RATES
 // ===========================================
 
+/**
+ * @openapi
+ * /rates/calculate:
+ *   post:
+ *     summary: Calculate shipping rates
+ *     description: Calculate available shipping rates for a destination and weight (public endpoint)
+ *     tags:
+ *       - Shipping Rates
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - originCountry
+ *               - destCountry
+ *               - weightOz
+ *             properties:
+ *               originCountry:
+ *                 type: string
+ *               destCountry:
+ *                 type: string
+ *               destState:
+ *                 type: string
+ *               weightOz:
+ *                 type: number
+ *               cartTotal:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: List of available shipping rates
+ *       400:
+ *         description: Validation error
+ */
 router.post('/calculate', optionalAuth, async (req: Request, res: Response) => {
   try {
     const validation = CalculateRatesSchema.safeParse(req.body);
@@ -123,6 +157,43 @@ router.post('/calculate', optionalAuth, async (req: Request, res: Response) => {
 // LIST SHIPPING RATES (Admin only)
 // ===========================================
 
+/**
+ * @openapi
+ * /rates:
+ *   get:
+ *     summary: List shipping rates
+ *     description: List all zone-based shipping rates (admin/fulfillment only)
+ *     tags:
+ *       - Shipping Rates
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: shippingMethodId
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: originCountry
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: destCountry
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: active
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *     responses:
+ *       200:
+ *         description: List of shipping rates
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.get(
   '/',
   requireAuth,
@@ -163,6 +234,59 @@ router.get(
 // CREATE SHIPPING RATE (Admin only)
 // ===========================================
 
+/**
+ * @openapi
+ * /rates:
+ *   post:
+ *     summary: Create shipping rate
+ *     description: Create a zone-based shipping rate (admin/fulfillment only)
+ *     tags:
+ *       - Shipping Rates
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - shippingMethodId
+ *               - originCountry
+ *               - destCountry
+ *               - minWeight
+ *               - maxWeight
+ *               - rate
+ *             properties:
+ *               shippingMethodId:
+ *                 type: integer
+ *               originCountry:
+ *                 type: string
+ *               originRegion:
+ *                 type: string
+ *               destCountry:
+ *                 type: string
+ *               destRegion:
+ *                 type: string
+ *               minWeight:
+ *                 type: number
+ *               maxWeight:
+ *                 type: number
+ *               rate:
+ *                 type: number
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       201:
+ *         description: Shipping rate created
+ *       400:
+ *         description: Validation error or shipping method not found
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ */
 router.post(
   '/',
   requireAuth,
@@ -215,6 +339,46 @@ router.post(
 // UPDATE SHIPPING RATE (Admin only)
 // ===========================================
 
+/**
+ * @openapi
+ * /rates/{id}:
+ *   put:
+ *     summary: Update shipping rate
+ *     description: Update a zone-based shipping rate (admin/fulfillment only)
+ *     tags:
+ *       - Shipping Rates
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               rate:
+ *                 type: number
+ *               isActive:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Shipping rate updated
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Shipping rate not found
+ */
 router.put(
   '/:id',
   requireAuth,
