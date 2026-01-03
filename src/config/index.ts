@@ -30,6 +30,12 @@ export const config = {
     url: process.env.DATABASE_URL || '',
   },
 
+  kafka: {
+    brokers: (process.env.KAFKA_BROKERS || 'localhost:9092').split(','),
+    clientId: 'fulfillment-service',
+    groupId: 'fulfillment-service-group',
+  },
+
   api: {
     title: 'Fulfillment Service API',
     version: '1.0.0',

@@ -4,7 +4,7 @@
   "description": "Fulfillment and shipping management service for the e-commerce platform",
   "main": "dist/main.js",
   "scripts": {
-    "dev": "tsx watch src/main.ts",
+    "dev": "tsx --env-file=.env --watch src/main.ts",
     "build": "tsc",
     "start": "node dist/main.js",
     "lint": "eslint src/",
