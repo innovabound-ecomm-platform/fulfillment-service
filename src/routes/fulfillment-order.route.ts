@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import { prisma } from '../common/utils/db';
 import { requireAuth, requirePermission, type AuthenticatedRequest } from '../common/http/auth.middleware';
+import { getSiteId, requireSiteId, warehouseWhere, withSiteId } from '../utils/tenant.utils';
 
 import {
   CreateFulfillmentOrderSchema,
@@ -82,8 +83,10 @@ router.get(
       }
 
       const { page, limit, status, warehouseId, orderId, assignedTo, priority } = validation.data;
+      const siteId = getSiteId(req);
 
       const where: Record<string, unknown> = {};
+      if (siteId) where.siteId = siteId;
 
       if (status) where.status = status;
       if (warehouseId) where.warehouseId = warehouseId;
@@ -134,14 +137,18 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const siteId = getSiteId(req);
+
+      const additionalWhere: Record<string, unknown> = {
+        OR: [
+          { id: parseInt(id as string) || 0 },
+          { uuid: id },
+        ],
+      };
+      if (siteId) additionalWhere.siteId = siteId;
 
       const order = await prisma.fulfillmentOrder.findFirst({
-        where: {
-          OR: [
-            { id: parseInt(id as string) || 0 },
-            { uuid: id },
-          ],
-        },
+        where: additionalWhere,
         include: {
           items: true,
         },
@@ -177,10 +184,11 @@ router.post(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
-      // Verify warehouse exists
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { id: data.warehouseId },
+      // Verify warehouse exists and belongs to tenant
+      const warehouse = await prisma.warehouse.findFirst({
+        where: warehouseWhere(siteId, { id: data.warehouseId }),
       });
 
       if (!warehouse) {
@@ -189,7 +197,7 @@ router.post(
       }
 
       const order = await prisma.fulfillmentOrder.create({
-        data: {
+        data: withSiteId({
           orderId: data.orderId,
           warehouseId: data.warehouseId,
           priority: data.priority,
@@ -207,7 +215,7 @@ router.post(
               updatedBy: req.user!.id,
             })),
           },
-        },
+        }, siteId),
         include: {
           items: true,
         },
@@ -240,6 +248,7 @@ router.post(
       }
 
       const { assignedTo } = validation.data;
+      const siteId = requireSiteId(req);
 
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
@@ -291,6 +300,7 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const siteId = requireSiteId(req);
 
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
@@ -352,6 +362,7 @@ router.post(
       }
 
       const { quantityPicked, pickedFromLocation } = validation.data;
+      const siteId = requireSiteId(req);
 
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
@@ -419,6 +430,7 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const siteId = requireSiteId(req);
 
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
@@ -484,6 +496,7 @@ router.post(
     try {
       const { id } = req.params;
       const { reason } = req.body;
+      const siteId = requireSiteId(req);
 
       const existingOrder = await prisma.fulfillmentOrder.findFirst({
         where: {
@@ -534,10 +547,12 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { warehouseId, assignedTo } = req.query;
+      const siteId = getSiteId(req);
 
       const where: Record<string, unknown> = {
         status: { in: ['pending', 'in_progress'] },
       };
+      if (siteId) where.siteId = siteId;
 
       if (warehouseId) where.warehouseId = parseInt(warehouseId as string);
       if (assignedTo) where.assignedTo = assignedTo;

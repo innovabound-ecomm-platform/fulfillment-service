@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import { prisma } from '../common/utils/db';
 import { requireAuth, requirePermission, type AuthenticatedRequest } from '../common/http/auth.middleware';
 import { AddShipmentItemSchema } from '../schemas/fulfillment.schema';
+import { getSiteId, requireSiteId, shipmentWhere } from '../utils/tenant.utils';
 
 const router: Router = Router();
 
@@ -9,15 +10,15 @@ const router: Router = Router();
 // HELPER: Find shipment by various identifiers
 // ===========================================
 
-async function findShipment(id: string) {
+async function findShipment(id: string, siteId: string | undefined, strict = false) {
   return prisma.shipment.findFirst({
-    where: {
+    where: shipmentWhere(siteId, {
       OR: [
         { id: parseInt(id) || 0 },
         { uuid: id },
         { shipmentNumber: id },
       ],
-    },
+    }, { strict }),
   });
 }
 
@@ -54,8 +55,9 @@ async function findShipment(id: string) {
 router.get('/:shipmentId', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { shipmentId } = req.params;
+    const siteId = getSiteId(req);
 
-    const shipment = await findShipment(shipmentId as string);
+    const shipment = await findShipment(shipmentId as string, siteId);
     if (!shipment) {
       res.status(404).json({ error: 'Shipment not found' });
       return;
@@ -156,8 +158,9 @@ router.post(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
-      const shipment = await findShipment(shipmentId as string);
+      const shipment = await findShipment(shipmentId as string, siteId, true);
       if (!shipment) {
         res.status(404).json({ error: 'Shipment not found' });
         return;
@@ -240,8 +243,9 @@ router.delete(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { shipmentId, itemId } = req.params;
+      const siteId = requireSiteId(req);
 
-      const shipment = await findShipment(shipmentId as string);
+      const shipment = await findShipment(shipmentId as string, siteId, true);
       if (!shipment) {
         res.status(404).json({ error: 'Shipment not found' });
         return;

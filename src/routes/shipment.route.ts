@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
 import { prisma } from '../common/utils/db';
 import { requireAuth, requirePermission, type AuthenticatedRequest } from '../common/http/auth.middleware';
+import { getSiteId, requireSiteId, shipmentWhere, withSiteId } from '../utils/tenant.utils';
 
 import {
   CreateShipmentSchema,
@@ -86,20 +87,23 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
       return;
     }
 
+    const siteId = getSiteId(req);
     const { page, limit, status, orderId, warehouseId, carrier, fromDate, toDate, sortBy, sortOrder } = validation.data;
 
-    const where: Record<string, unknown> = {};
+    const additionalWhere: Record<string, unknown> = {};
 
-    if (status) where.status = status;
-    if (orderId) where.orderId = orderId;
-    if (warehouseId) where.warehouseId = warehouseId;
-    if (carrier) where.carrier = carrier;
+    if (status) additionalWhere.status = status;
+    if (orderId) additionalWhere.orderId = orderId;
+    if (warehouseId) additionalWhere.warehouseId = warehouseId;
+    if (carrier) additionalWhere.carrier = carrier;
 
     if (fromDate || toDate) {
-      where.createdAt = {};
-      if (fromDate) (where.createdAt as Record<string, Date>).gte = fromDate;
-      if (toDate) (where.createdAt as Record<string, Date>).lte = toDate;
+      additionalWhere.createdAt = {};
+      if (fromDate) (additionalWhere.createdAt as Record<string, Date>).gte = fromDate;
+      if (toDate) (additionalWhere.createdAt as Record<string, Date>).lte = toDate;
     }
+
+    const where = shipmentWhere(siteId, additionalWhere, { strict: false });
 
     const [shipments, total] = await Promise.all([
       prisma.shipment.findMany({
@@ -168,16 +172,17 @@ router.get('/', requireAuth, async (req: AuthenticatedRequest, res: Response) =>
 router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const siteId = getSiteId(req);
 
     const shipment = await prisma.shipment.findFirst({
-      where: {
+      where: shipmentWhere(siteId, {
         OR: [
           { id: parseInt(id as string) || 0 },
           { uuid: id },
           { shipmentNumber: id },
           { trackingNumber: id },
         ],
-      },
+      }, { strict: false }),
       include: {
         items: true,
         trackingEvents: {
@@ -254,9 +259,10 @@ router.post(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
       const shipment = await prisma.shipment.create({
-        data: {
+        data: withSiteId({
           shipmentNumber: generateShipmentNumber(),
           orderId: data.orderId,
           priority: data.priority,
@@ -298,7 +304,7 @@ router.post(
               updatedBy: req.user!.id,
             })),
           } : undefined,
-        },
+        }, siteId),
         include: {
           items: true,
           warehouse: true,
@@ -362,15 +368,16 @@ router.put(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
       const existingShipment = await prisma.shipment.findFirst({
-        where: {
+        where: shipmentWhere(siteId, {
           OR: [
             { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
-        },
+        }),
       });
 
       if (!existingShipment) {
@@ -447,15 +454,16 @@ router.post(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
       const existingShipment = await prisma.shipment.findFirst({
-        where: {
+        where: shipmentWhere(siteId, {
           OR: [
             { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
-        },
+        }),
       });
 
       if (!existingShipment) {
@@ -553,15 +561,16 @@ router.post(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
       const existingShipment = await prisma.shipment.findFirst({
-        where: {
+        where: shipmentWhere(siteId, {
           OR: [
             { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
-        },
+        }),
       });
 
       if (!existingShipment) {
@@ -647,15 +656,16 @@ router.post(
     try {
       const { id } = req.params;
       const { reason } = req.body;
+      const siteId = requireSiteId(req);
 
       const existingShipment = await prisma.shipment.findFirst({
-        where: {
+        where: shipmentWhere(siteId, {
           OR: [
             { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
           ],
-        },
+        }),
       });
 
       if (!existingShipment) {

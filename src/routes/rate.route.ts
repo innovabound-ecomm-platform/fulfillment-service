@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { prisma } from '../common/utils/db';
 import { requireAuth, requirePermission, optionalAuth, type AuthenticatedRequest } from '../common/http/auth.middleware';
+import { getSiteId, requireSiteId, shippingMethodWhere, withSiteId } from '../utils/tenant.utils';
 
 import {
   CreateShippingRateSchema,
@@ -58,10 +59,11 @@ router.post('/calculate', optionalAuth, async (req: Request, res: Response) => {
     }
 
     const { originCountry, destCountry, destState, weightOz, cartTotal } = validation.data;
+    const siteId = getSiteId(req as AuthenticatedRequest);
 
     // Get active shipping methods
     const methods = await prisma.shippingMethod.findMany({
-      where: { isActive: true },
+      where: shippingMethodWhere(siteId, { isActive: true }, { strict: false }),
       orderBy: [
         { sortOrder: 'asc' },
         { baseCost: 'asc' },
@@ -300,10 +302,11 @@ router.post(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
-      // Verify shipping method exists
-      const method = await prisma.shippingMethod.findUnique({
-        where: { id: data.shippingMethodId },
+      // Verify shipping method exists and belongs to tenant
+      const method = await prisma.shippingMethod.findFirst({
+        where: shippingMethodWhere(siteId, { id: data.shippingMethodId }),
       });
 
       if (!method) {
@@ -312,7 +315,7 @@ router.post(
       }
 
       const rate = await prisma.shippingRate.create({
-        data: {
+        data: withSiteId({
           originCountry: data.originCountry,
           originRegion: data.originRegion,
           destCountry: data.destCountry,
@@ -324,7 +327,7 @@ router.post(
           isActive: data.isActive,
           createdBy: req.user!.id,
           updatedBy: req.user!.id,
-        },
+        }, siteId),
       });
 
       res.status(201).json(rate);
@@ -394,8 +397,9 @@ router.put(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
-      const existingRate = await prisma.shippingRate.findUnique({
+      const existingRate = await prisma.shippingRate.findFirst({
         where: { id: parseInt(id as string) },
       });
 
@@ -431,8 +435,9 @@ router.delete(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const siteId = requireSiteId(req);
 
-      const rate = await prisma.shippingRate.findUnique({
+      const rate = await prisma.shippingRate.findFirst({
         where: { id: parseInt(id as string) },
       });
 

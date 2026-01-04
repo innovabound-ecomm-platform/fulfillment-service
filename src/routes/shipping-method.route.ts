@@ -1,6 +1,7 @@
 import { Router, type Request, type Response } from 'express';
 import { prisma } from '../common/utils/db';
 import { requireAuth, requirePermission, optionalAuth, type AuthenticatedRequest } from '../common/http/auth.middleware';
+import { getSiteId, requireSiteId, shippingMethodWhere, withSiteId } from '../utils/tenant.utils';
 
 import {
   CreateShippingMethodSchema,
@@ -38,9 +39,12 @@ const router: Router = Router();
 router.get('/', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { active } = req.query;
+    const siteId = getSiteId(req as AuthenticatedRequest);
 
-    const where: Record<string, unknown> = {};
-    if (active === 'true') where.isActive = true;
+    const additionalWhere: Record<string, unknown> = {};
+    if (active === 'true') additionalWhere.isActive = true;
+
+    const where = shippingMethodWhere(siteId, additionalWhere, { strict: false });
 
     const methods = await prisma.shippingMethod.findMany({
       where,
@@ -88,15 +92,16 @@ router.get('/', optionalAuth, async (req: Request, res: Response) => {
 router.get('/:id', optionalAuth, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const siteId = getSiteId(req as AuthenticatedRequest);
 
     const method = await prisma.shippingMethod.findFirst({
-      where: {
+      where: shippingMethodWhere(siteId, {
         OR: [
           { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
-      },
+      }, { strict: false }),
     });
 
     if (!method) {
@@ -194,10 +199,11 @@ router.post(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
       // Check for duplicate code
-      const existing = await prisma.shippingMethod.findUnique({
-        where: { code: data.code },
+      const existing = await prisma.shippingMethod.findFirst({
+        where: shippingMethodWhere(siteId, { code: data.code }),
       });
 
       if (existing) {
@@ -206,7 +212,7 @@ router.post(
       }
 
       const method = await prisma.shippingMethod.create({
-        data: {
+        data: withSiteId({
           name: data.name,
           code: data.code,
           description: data.description,
@@ -224,7 +230,7 @@ router.post(
           sortOrder: data.sortOrder,
           createdBy: req.user!.id,
           updatedBy: req.user!.id,
-        },
+        }, siteId),
       });
 
       res.status(201).json(method);
@@ -299,15 +305,16 @@ router.put(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
       const existingMethod = await prisma.shippingMethod.findFirst({
-        where: {
+        where: shippingMethodWhere(siteId, {
           OR: [
             { id: parseInt(id as string) || 0 },
             { uuid: id },
             { code: id },
           ],
-        },
+        }),
       });
 
       if (!existingMethod) {
@@ -342,15 +349,16 @@ router.delete(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
+      const siteId = requireSiteId(req);
 
       const method = await prisma.shippingMethod.findFirst({
-        where: {
+        where: shippingMethodWhere(siteId, {
           OR: [
             { id: parseInt(id as string) || 0 },
             { uuid: id },
             { code: id },
           ],
-        },
+        }),
       });
 
       if (!method) {

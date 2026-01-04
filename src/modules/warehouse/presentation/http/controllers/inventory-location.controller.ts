@@ -6,6 +6,7 @@ import {
   UpdateInventoryLocationSchema,
   AdjustInventorySchema,
 } from '../schemas/warehouse.schema';
+import { getSiteId, requireSiteId, warehouseWhere } from '../../../../../utils/tenant.utils';
 
 // ===========================================
 // INVENTORY LOCATION CONTROLLERS
@@ -15,15 +16,16 @@ export const listInventoryLocations = async (req: AuthenticatedRequest, res: Res
   try {
     const { id } = req.params;
     const { zone, sku, productId, active } = req.query;
+    const siteId = getSiteId(req);
 
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
+      where: warehouseWhere(siteId, {
         OR: [
           { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
-      },
+      }, { strict: false }),
     });
 
     if (!warehouse) {
@@ -102,15 +104,16 @@ export const createInventoryLocation = async (req: AuthenticatedRequest, res: Re
     }
 
     const data = validation.data;
+    const siteId = requireSiteId(req);
 
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
+      where: warehouseWhere(siteId, {
         OR: [
           { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
-      },
+      }),
     });
 
     if (!warehouse) {
@@ -164,15 +167,16 @@ export const updateInventoryLocation = async (req: AuthenticatedRequest, res: Re
     }
 
     const data = validation.data;
+    const siteId = requireSiteId(req);
 
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
+      where: warehouseWhere(siteId, {
         OR: [
           { id: parseInt(warehouseId as string) || 0 },
           { uuid: warehouseId },
           { code: warehouseId },
         ],
-      },
+      }),
     });
 
     if (!warehouse) {
@@ -218,15 +222,16 @@ export const adjustInventory = async (req: AuthenticatedRequest, res: Response):
     }
 
     const { quantity, reason } = validation.data;
+    const siteId = requireSiteId(req);
 
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
+      where: warehouseWhere(siteId, {
         OR: [
           { id: parseInt(warehouseId as string) || 0 },
           { uuid: warehouseId },
           { code: warehouseId },
         ],
-      },
+      }),
     });
 
     if (!warehouse) {
@@ -280,15 +285,16 @@ export const adjustInventory = async (req: AuthenticatedRequest, res: Response):
 export const deleteInventoryLocation = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { warehouseId, locationId } = req.params;
+    const siteId = requireSiteId(req);
 
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
+      where: warehouseWhere(siteId, {
         OR: [
           { id: parseInt(warehouseId as string) || 0 },
           { uuid: warehouseId },
           { code: warehouseId },
         ],
-      },
+      }),
     });
 
     if (!warehouse) {

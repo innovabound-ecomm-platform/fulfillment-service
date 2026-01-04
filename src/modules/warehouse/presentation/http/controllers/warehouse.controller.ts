@@ -6,6 +6,7 @@ import {
   UpdateWarehouseSchema,
   WarehouseListQuerySchema,
 } from '../schemas/warehouse.schema';
+import { getSiteId, requireSiteId, warehouseWhere, shipmentWhere, withSiteId } from '../../../../../utils/tenant.utils';
 
 // Re-export address and inventory location controllers for backwards compatibility
 export {
@@ -37,9 +38,12 @@ export const listWarehouses = async (req: AuthenticatedRequest, res: Response): 
     }
 
     const { page, limit, status } = validation.data;
+    const siteId = getSiteId(req);
 
-    const where: Record<string, unknown> = {};
-    if (status) where.status = status;
+    const additionalWhere: Record<string, unknown> = {};
+    if (status) additionalWhere.status = status;
+
+    const where = warehouseWhere(siteId, additionalWhere, { strict: false });
 
     const [warehouses, total] = await Promise.all([
       prisma.warehouse.findMany({
@@ -78,15 +82,16 @@ export const listWarehouses = async (req: AuthenticatedRequest, res: Response): 
 export const getWarehouseById = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const siteId = getSiteId(req);
 
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
+      where: warehouseWhere(siteId, {
         OR: [
           { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
-      },
+      }, { strict: false }),
       include: {
         addresses: true,
         _count: {
@@ -119,10 +124,11 @@ export const createWarehouse = async (req: AuthenticatedRequest, res: Response):
     }
 
     const data = validation.data;
+    const siteId = requireSiteId(req);
 
     // Check for duplicate code
-    const existing = await prisma.warehouse.findUnique({
-      where: { code: data.code },
+    const existing = await prisma.warehouse.findFirst({
+      where: warehouseWhere(siteId, { code: data.code }),
     });
 
     if (existing) {
@@ -131,7 +137,7 @@ export const createWarehouse = async (req: AuthenticatedRequest, res: Response):
     }
 
     const warehouse = await prisma.warehouse.create({
-      data: {
+      data: withSiteId({
         code: data.code,
         name: data.name,
         status: data.status,
@@ -144,7 +150,7 @@ export const createWarehouse = async (req: AuthenticatedRequest, res: Response):
         processingDays: data.processingDays,
         createdBy: req.user!.id,
         updatedBy: req.user!.id,
-      },
+      }, siteId),
     });
 
     res.status(201).json(warehouse);
@@ -165,15 +171,16 @@ export const updateWarehouse = async (req: AuthenticatedRequest, res: Response):
     }
 
     const data = validation.data;
+    const siteId = requireSiteId(req);
 
     const existingWarehouse = await prisma.warehouse.findFirst({
-      where: {
+      where: warehouseWhere(siteId, {
         OR: [
           { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
-      },
+      }),
     });
 
     if (!existingWarehouse) {
@@ -202,15 +209,16 @@ export const updateWarehouse = async (req: AuthenticatedRequest, res: Response):
 export const deleteWarehouse = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
+    const siteId = requireSiteId(req);
 
     const warehouse = await prisma.warehouse.findFirst({
-      where: {
+      where: warehouseWhere(siteId, {
         OR: [
           { id: parseInt(id as string) || 0 },
           { uuid: id },
           { code: id },
         ],
-      },
+      }),
     });
 
     if (!warehouse) {
@@ -220,10 +228,10 @@ export const deleteWarehouse = async (req: AuthenticatedRequest, res: Response):
 
     // Check for active shipments
     const activeShipments = await prisma.shipment.count({
-      where: {
+      where: shipmentWhere(siteId, {
         warehouseId: warehouse.id,
         status: { notIn: ['DELIVERED', 'CANCELLED', 'RETURNED_TO_SENDER'] },
-      },
+      }),
     });
 
     if (activeShipments > 0) {

@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import { prisma } from '../common/utils/db';
 import { requireAuth, requirePermission, type AuthenticatedRequest } from '../common/http/auth.middleware';
 import { AddTrackingEventSchema } from '../schemas/fulfillment.schema';
+import { getSiteId, requireSiteId, shipmentWhere } from '../utils/tenant.utils';
 
 const router: Router = Router();
 
@@ -38,16 +39,17 @@ const router: Router = Router();
 router.get('/:id', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const siteId = getSiteId(req);
 
     const shipment = await prisma.shipment.findFirst({
-      where: {
+      where: shipmentWhere(siteId, {
         OR: [
           { id: parseInt(id as string) || 0 },
           { uuid: id },
           { shipmentNumber: id },
           { trackingNumber: id },
         ],
-      },
+      }, { strict: false }),
     });
 
     if (!shipment) {
@@ -154,16 +156,17 @@ router.post(
       }
 
       const data = validation.data;
+      const siteId = requireSiteId(req);
 
       const shipment = await prisma.shipment.findFirst({
-        where: {
+        where: shipmentWhere(siteId, {
           OR: [
             { id: parseInt(id as string) || 0 },
             { uuid: id },
             { shipmentNumber: id },
             { trackingNumber: id },
           ],
-        },
+        }),
       });
 
       if (!shipment) {
